@@ -27,10 +27,20 @@ func (p Pod) _checkAssurance(assurance float32) bool {
 
 func createRandomPod(id int, req_min int, req_max int, req_unit int, lim_max_ratio float32, expire_ratio float32) *Pod {
 	var rnd = rand_01()
-	var rt bool = rnd >= 0.5
+	var rt bool = rnd >= 0.45
 	var c int = No
 	if rt {
-		if rnd < 0.75 {
+		rnd = rand_01()
+		if rnd < 0.5 {
+			c = Low
+		} else {
+			c = High
+		}
+	}else{
+		rnd = rand_01()
+		if rnd < 0.5 {
+			c = No
+		} else if rnd < 0.75{
 			c = Low
 		} else {
 			c = High

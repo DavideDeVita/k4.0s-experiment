@@ -9,13 +9,13 @@ const (
 	MISUSED_RT
 )
 
-var weights = [6]float32{50., 45., -7.5, 5., -5}
+var weights = [6]float32{52.5, 42.5, -7.5, 5., -5}
 var normalization_denom [5]float32
 
 var objective_functions = []func(WorkerNode, WN_Status) float32{
 	FO_jobsCount, FO_getAssurance, FO_energyCost, FO_squaredUnrequestedCapacity, FO_RTCapacityDoingNonRT,
 	}
-
+var fo_active = [6]bool{true, true, false, true, false}
 var objFunc_aggregator func([]float32) float32= weighted_sum_moo_method
 
 const rt_space_extra_value float32 = 1. //4./3.
@@ -31,8 +31,13 @@ func FO_jobsCount(wn WorkerNode, status WN_Status) float32 {
 func FO_jobsRejected(wn WorkerNode, status WN_Status) float32 {
 	return normalization_denom[1] - float32(status.count)
 }
-func FO_getAssurance(wn WorkerNode, status WN_Status) float32 {
+func FO_getAssuranceAll(wn WorkerNode, status WN_Status) float32 {
 	return status.assurance
+}
+func FO_getAssurance(wn WorkerNode, status WN_Status) float32 {
+	if wn.RealTime{
+		return status.assurance
+	}else{ return 0. }
 }
 func FO_energyCost(wn WorkerNode, status WN_Status) float32 {
 	if status.active {
@@ -78,7 +83,9 @@ func weighted_sum_moo_method(fo_values []float32) float32 {
 	// normalized[JOBS_COUNT] = (fo_values[JOBS_COUNT]*fo_values[JOBS_COUNT])/(normalization_denom[JOBS_COUNT]*normalization_denom[JOBS_COUNT])	
 	// normalized[JOBS_REJECTED] = (fo_values[JOBS_REJECTED]*fo_values[JOBS_REJECTED])/(normalization_denom[JOBS_REJECTED]*normalization_denom[JOBS_REJECTED])	
 	for o := range normalized {
-		ret += normalized[o] * weights[o]
+		if fo_active[o]{
+			ret += normalized[o] * weights[o]
+		}
 	}
 
 	//Missed Pods Penalty

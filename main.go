@@ -9,16 +9,14 @@ import (
 const switch_cost float32 = 0
 const allow_switch bool = true
 
-var n_additional_nodes int = rand_ab_int(0, 2)
-
-// const kill_a_node_at int = 200
+var n_additional_nodes int = 1 //rand_ab_int(0, 2)
 
 /* GLOBAL VARIABLES */
 // Number of Worker Nodes
-var n int = rand_ab_int(4, 10)
+var n int = 6 //rand_ab_int(4, 10)
 
 // Number of Pods
-var m int = rand_ab_int(300, 800)
+var m int = 748 //rand_ab_int(300, 800)
 
 // batch size for batch main
 var batch_size int = 5
@@ -57,11 +55,12 @@ func init() {
 	}
 
 	// Init the Normalization Vector
-	{
+	{	var rt_count float32 = 0.
 		var totalFreeCapacity, totalActivation, rtCapacity float32 = 0, 0, 0
 		var bonus float32 = 1
 		for _, wn := range workerNodes[0] {
 			if wn.RealTime {
+				rt_count++
 				bonus = rt_space_extra_value
 				rtCapacity += float32(wn.CPU_Capacity)
 			} else {
@@ -71,7 +70,7 @@ func init() {
 
 			totalActivation += float32(wn.Cost)
 		}
-		normalization_denom = [5]float32{0, float32(n), totalActivation, totalFreeCapacity, rtCapacity}
+		normalization_denom = [5]float32{0, rt_count, totalActivation, totalFreeCapacity, rtCapacity}
 	}
 }
 
@@ -139,8 +138,8 @@ func main_sequential() {
 		//Create Random Pod
 		pod = createRandomPod(
 			j,
-			3, 20, 50, // CPU Required (min, max, unit)
-			2.25,         // Cpu Limit Max Ratio: it will be random between required and Ratio*required
+			2, 15, 50, // CPU Required (min, max, unit)
+			2.5,         // Cpu Limit Max Ratio: it will be random between required and Ratio*required
 			rand_01()*20, // Cpu Limit Max Ratio: it will be random between required and Ratio*required
 		)
 
@@ -179,7 +178,7 @@ func main_sequential() {
 		// }
 
 		// Alastor - Every 3 Jobs, check wether to switch something
-		if allow_switch && j%3 == 2 {
+		if allow_switch && j%2 == 1 {
 			alastor_curr_fo := reports[0].current_fo_score
 			alastor_curr_fo_components := reports[0].current_fo_components
 			from, what, to, ifSwitch_fo_score := check_wether_switch_a_pod(workerNodes[0], alastor_curr_fo, alastor_curr_fo_components)
@@ -230,13 +229,13 @@ func main_sequential() {
 			var freeCapacity float32
 			if wn.RealTime {
 				freeCapacity = rt_space_extra_value
+				normalization_denom[ASSURANCE]++
 				normalization_denom[MISUSED_RT] += float32(wn.CPU_Capacity)
 			} else {
 				freeCapacity = 1
 			}
 			freeCapacity *= keepSign_centiSqr(wn.CPU_Capacity)
 
-			normalization_denom[ASSURANCE]++
 			normalization_denom[ENERGY] += float32(wn.Cost)
 			normalization_denom[SQUARED_CAPACITY] += freeCapacity
 		}
