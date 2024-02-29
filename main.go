@@ -70,7 +70,8 @@ func init() {
 
 			totalActivation += float32(wn.Cost)
 		}
-		normalization_denom = [5]float32{0, rt_count, totalActivation, totalFreeCapacity, rtCapacity}
+		// normalization_denom = [5]float32{0, rt_count, totalActivation, totalFreeCapacity, rtCapacity}
+		normalization_denom = [5]float32{0, float32(n), totalActivation, totalFreeCapacity, rtCapacity}
 	}
 }
 

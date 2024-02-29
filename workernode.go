@@ -4,17 +4,21 @@ import (
 	"fmt"
 )
 
+const Alpha_max = 5
+const Beta_max = 5
+const Gamma_max = 10
+const Assurance_Denom = Alpha_max + Beta_max + Gamma_max
+
 /* Worker Node */
 type WorkerNode struct {
-	ID                 int
-	RealTime           bool
-	CPU_Capacity       int
-	Cost               int
-	Assurance_alpha    float32
-	Assurance_beta     float32
-	Assurance_gammaMax float32
-	Pods               []*Pod
-	status             *WN_Status
+	ID           int
+	RealTime     bool
+	CPU_Capacity int
+	Cost         int
+	alpha        float32
+	beta         float32
+	Pods         []*Pod
+	status       *WN_Status
 }
 
 // Base
@@ -24,36 +28,33 @@ func createRandomWorkerNode(id int, capacity_unit int, capacity_min int, capacit
 	var cost int = rand_ab_int(cost_min, cost_max) * cost_unit
 	var alpha = rand_ab_int(Ass_min, ass_max)
 	var beta = rand_ab_int(Ass_min, ass_max)
-	var gamma = 2*rand_ab_int(Ass_min, ass_max)
 	return WorkerNode{
-		ID:                 id,
-		RealTime:           rt,
-		CPU_Capacity:       capacity,
-		Cost:               cost,
-		Assurance_alpha:    float32(alpha),
-		Assurance_beta:     float32(beta),
-		Assurance_gammaMax: float32(gamma),
-		Pods:               []*Pod{},
+		ID:           id,
+		RealTime:     rt,
+		CPU_Capacity: capacity,
+		Cost:         cost,
+		alpha:        float32(alpha),
+		beta:         float32(beta),
+		Pods:         []*Pod{},
 	}
 }
 
 // Base
 func (wn WorkerNode) copy() WorkerNode {
 	return WorkerNode{
-		ID:                 wn.ID,
-		RealTime:           wn.RealTime,
-		CPU_Capacity:       wn.CPU_Capacity,
-		Cost:               wn.Cost,
-		Assurance_alpha:    wn.Assurance_alpha,
-		Assurance_beta:     wn.Assurance_beta,
-		Assurance_gammaMax: wn.Assurance_gammaMax,
-		Pods:               []*Pod{},
+		ID:           wn.ID,
+		RealTime:     wn.RealTime,
+		CPU_Capacity: wn.CPU_Capacity,
+		Cost:         wn.Cost,
+		alpha:        wn.alpha,
+		beta:         wn.beta,
+		Pods:         []*Pod{},
 	}
 }
 
 func (wn WorkerNode) String() string {
-	return fmt.Sprintf("Worker Node %d (%d Pods currenty deployed).\n\tReal time:\t\t%t\n\tCPU capacity:\t\t%d\n\tActivation cost\t\t%d\n\tAssurance (alpha, beta, gammaMax)\t%f\t%f\t%f\n",
-		wn.ID, len(wn.Pods), wn.RealTime, wn.CPU_Capacity, wn.Cost, wn.Assurance_alpha, wn.Assurance_beta, wn.Assurance_gammaMax,
+	return fmt.Sprintf("Worker Node %d (%d Pods currenty deployed).\n\tReal time:\t\t%t\n\tCPU capacity:\t\t%d\n\tActivation cost\t\t%d\n\tAssurance (alpha, beta, gammaMax)\t%f\t%f\n",
+		wn.ID, len(wn.Pods), wn.RealTime, wn.CPU_Capacity, wn.Cost, wn.alpha, wn.beta,
 	)
 }
 
@@ -79,44 +80,43 @@ func (wn WorkerNode) getCPU_Usages() (int, int, int, int, int, int) {
 	return NO_Requested, NO_Limit, LOW_Requested, LOW_Limit, HI_Requested, HI_Limit
 }
 
-func (wn WorkerNode) get_CapacityLeft() int{
+func (wn WorkerNode) get_CapacityLeft() int {
 	var cl int = wn.CPU_Capacity
-	for _, p := range wn.Pods{
+	for _, p := range wn.Pods {
 		cl -= p.CPU_Request
-	} 
+	}
 	return cl
 }
 
 func (wn WorkerNode) getAssurance(NO_Requested, NO_Limit, LOW_Requested, LOW_Limit, HI_Requested, HI_Limit int) float32 {
-	var maxAssurance float32 = wn.Assurance_alpha + wn.Assurance_beta + wn.Assurance_gammaMax
 	var gamma float32 = 0
 
 	// Criterio di Garantibilità dei Job Altamente Critici
 	if HI_Limit <= wn.CPU_Capacity {
 		gamma += 0.2
 		// Criterio di Sostenibilità dei Job Critici
-		if LOW_Requested + HI_Limit <= wn.CPU_Capacity {
+		if LOW_Requested+HI_Limit <= wn.CPU_Capacity {
 			gamma += 0.2
 			// Criterio di Garantibilità dei Job Critici
-			if LOW_Limit + HI_Limit <= wn.CPU_Capacity {
+			if LOW_Limit+HI_Limit <= wn.CPU_Capacity {
 				gamma += 0.1
 			}
 			// Criterio di Sostenibilità dei Job Critici e Non Interruzione
-			if NO_Requested + LOW_Requested + HI_Limit <= wn.CPU_Capacity {
+			if NO_Requested+LOW_Requested+HI_Limit <= wn.CPU_Capacity {
 				gamma += 0.1
 			}
 			// Criterio di Non Interruzione
-			if gamma > 0.4 && (NO_Requested + LOW_Limit + HI_Limit <= wn.CPU_Capacity) {
+			if gamma > 0.4 && (NO_Requested+LOW_Limit+HI_Limit <= wn.CPU_Capacity) {
 				gamma += 0.2
 				// Criterio di Assoluta gestibilità
-				if NO_Limit + LOW_Limit + HI_Limit <= wn.CPU_Capacity {
+				if NO_Limit+LOW_Limit+HI_Limit <= wn.CPU_Capacity {
 					gamma += 0.2
 				}
 			}
 		}
 	}
-	gamma *= wn.Assurance_gammaMax
-	return (wn.Assurance_alpha + wn.Assurance_beta + gamma) / maxAssurance
+	gamma *= Gamma_max
+	return (wn.alpha + wn.beta + gamma) / Assurance_Denom
 }
 
 func (wn WorkerNode) getStatus() *WN_Status {
@@ -245,7 +245,7 @@ func (wn *WorkerNode) findMostTroublesomePod(
 
 		// How would it be if <pod> was not here
 		if_st.count -= 1
-		if_st.active = if_st.count > 0	
+		if_st.active = if_st.count > 0
 
 		if_st.freeCPU += pod.CPU_Limit
 		if_st.unrequestedCPU += pod.CPU_Request
@@ -281,8 +281,8 @@ func (wn *WorkerNode) findMostTroublesomePod(
 		fo_score_ifRemove = fo_aggregator(fo_components_ifRemove)
 
 		// Favour removing non-RT Pods from RT Worker Nodes
-		if wn.RealTime && !pod.RealTime{
-			fo_score_ifRemove += abs(fo_score_ifRemove)*0.15
+		if wn.RealTime && !pod.RealTime {
+			fo_score_ifRemove += abs(fo_score_ifRemove) * 0.15
 		}
 
 		// in-loop check max
@@ -307,14 +307,14 @@ func (wn *WorkerNode) removePod(idx int) *Pod {
 
 func (wn *WorkerNode) removeCompleted() {
 	var toRemove []int = []int{}
-	for i:=len(wn.Pods)-1; i>-1; i--{
-		var p *Pod= wn.Pods[i]
+	for i := len(wn.Pods) - 1; i > -1; i-- {
+		var p *Pod = wn.Pods[i]
 		// fmt.Printf("Pod %d (%p) c left %d\n", p.ID, p, p.computation_left)
-		if p.computation_left<=0{
+		if p.computation_left <= 0 {
 			toRemove = append(toRemove, i)
 		}
 	}
-	for _, r_idx := range(toRemove){
+	for _, r_idx := range toRemove {
 		// fmt.Printf("\tPod %d completed n removed\n", wn.Pods[r_idx].ID)
 		wn.removePod(r_idx)
 	}

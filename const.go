@@ -7,5 +7,5 @@ const (
     High         // 2
 )
 
-const theta_HI float32 = 0.5
-const theta_LO float32 = 0.25
+const theta_HI float32 = 2./3.
+const theta_LO float32 = 1./3.

@@ -31,16 +31,16 @@ func createRandomPod(id int, req_min int, req_max int, req_unit int, lim_max_rat
 	var c int = No
 	if rt {
 		rnd = rand_01()
-		if rnd < 0.5 {
+		if rnd < 2./3. {
 			c = Low
 		} else {
 			c = High
 		}
 	}else{
 		rnd = rand_01()
-		if rnd < 0.5 {
+		if rnd < 2./3. {
 			c = No
-		} else if rnd < 0.75{
+		} else if rnd < 8./9.{
 			c = Low
 		} else {
 			c = High
@@ -51,7 +51,7 @@ func createRandomPod(id int, req_min int, req_max int, req_unit int, lim_max_rat
 	var lim int = rand_ab_int(req, lim_max)
 	req *= req_unit
 	lim *= req_unit
-	cp_left := int(float32(req+lim)*(1+expire_ratio))
+	cp_left := int(float32(req+lim)*(1+rand_01())*(expire_ratio))
 
 	return &Pod{
 		ID:          id,
